@@ -1,0 +1,5 @@
+[D-BUS Service]
+Name=org.isoftlinux.OSProber
+Exec=@CMAKE_INSTALL_FULL_BINDIR@/isoft-os-prober-daemon
+User=root
+SystemdService=isoft-os-prober-daemon.service

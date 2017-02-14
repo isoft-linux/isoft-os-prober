@@ -1,0 +1,11 @@
+[Unit]
+Description=iSOFT OSProber Service
+
+[Service]
+Type=dbus
+BusName=org.isoftlinux.OSProber
+ExecStart=@CMAKE_INSTALL_FULL_BINDIR@/isoft-os-prober-daemon
+StandardOutput=syslog
+
+[Install]
+WantedBy=multi-user.target

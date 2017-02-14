@@ -1,3 +1,6 @@
+build
+scan-build
+
 # Object files
 *.o
 *.ko
