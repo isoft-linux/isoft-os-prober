@@ -211,6 +211,9 @@ daemon_probe(OSProberOSProber *object,
                                          toks[1], 
                                          toks[2]); /* so we do NOT use the 4th 
                                                       value might changed */
+#ifdef DEBUG
+            g_print("DEBUG: Found %s %s %s\n", toks[0], toks[1], toks[2]);
+#endif
         }
         fclose(fptr);
         fptr = NULL;

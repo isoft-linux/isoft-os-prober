@@ -18,13 +18,9 @@
  *
  */
 
-#include <stdlib.h>
-#include <stdarg.h>
 #include <locale.h>
 #include <libintl.h>
 #include <syslog.h>
-#include <sys/stat.h>
-#include <errno.h>
 
 #include <glib.h>
 #include <glib/gi18n.h>
@@ -81,7 +77,6 @@ log_handler(const gchar   *domain,
             const gchar   *message,
             gpointer       data)
 {
-    /* filter out DEBUG messages if debug isn't set */
     if ((level & G_LOG_LEVEL_MASK) == G_LOG_LEVEL_DEBUG && !debug)
         return;
 
@@ -98,10 +93,10 @@ on_signal_quit(gpointer data)
 int
 main(int argc, char *argv[])
 {
-    GError *error;
-    gint ret;
+    GError *error = NULL;
+    gint ret = 1;
     GBusNameOwnerFlags flags;
-    GOptionContext *context;
+    GOptionContext *context = NULL;
     static gboolean replace;
     static gboolean show_version;
     static GOptionEntry entries[] = {
@@ -112,9 +107,6 @@ main(int argc, char *argv[])
         { NULL }
     };
 
-    ret = 1;
-    error = NULL;
-
     bindtextdomain(GETTEXT_PACKAGE, PROJECT_LOCALEDIR);
     bind_textdomain_codeset(GETTEXT_PACKAGE, "UTF-8");
     textdomain(GETTEXT_PACKAGE);
@@ -124,6 +116,9 @@ main(int argc, char *argv[])
 #endif
 
     if (!g_setenv("GIO_USE_VFS", "local", TRUE)) {
+#ifdef DEBUG
+        g_print("DEBUG: failed to set GIO_USE_VFS enviorment!\n");
+#endif
         goto out;
     }
 
@@ -134,12 +129,13 @@ main(int argc, char *argv[])
     g_option_context_set_translation_domain(context, GETTEXT_PACKAGE);
     g_option_context_set_summary(context, _("Provides D-Bus interfaces for probering OS."));
     g_option_context_add_main_entries(context, entries, NULL);
-    error = NULL;
     if (!g_option_context_parse(context, &argc, &argv, &error)) {
-        g_error_free(error);
+#ifdef DEBUG
+        g_print("DEBUG: failed to parse option!\n");
+#endif
         goto out;
     }
-    g_option_context_free(context);
+    g_option_context_free(context); context = NULL;
 
     if (show_version) {
         g_print("isoft-os-prober-daemon " PROJECT_VERSION "\n");
@@ -165,11 +161,18 @@ main(int argc, char *argv[])
 
     g_unix_signal_add(SIGINT, on_signal_quit, loop);
     g_unix_signal_add(SIGTERM, on_signal_quit, loop);
+#ifdef DEBUG
+    g_print("DEBUG: entering main loop\n");
+#endif
     g_main_loop_run(loop);
 
+#ifdef DEBUG
+    g_print("DEBUG: exiting\n");
+#endif
     g_main_loop_unref(loop);
     ret = 0;
 
- out:
+out:
+    if (error) g_error_free(error); error = NULL;
     return ret;
 }
