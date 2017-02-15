@@ -172,55 +172,92 @@ daemon_get_daemon_version(OSProberOSProber *object)
     return PROJECT_VERSION;
 }
 
+static gpointer osprober_routine(gpointer data) 
+{
+    Daemon *daemon = (Daemon *)data;
+	gboolean ret;
+    gchar *out = NULL;
+    gchar *err;
+    int status;
+    GError *error = NULL;
+    gchar **tokens = NULL;
+    gchar **line;
+    gchar **ptr;
+    gchar *part = NULL;
+    gchar *name = NULL;
+    gchar *shortname = NULL;
+    int i;
+
+    ret = g_spawn_command_line_sync("/usr/bin/os-prober", 
+                                    &out, 
+                                    &err, 
+                                    &status, 
+                                    &error);
+    if (ret && out && status == 0) {
+        tokens = g_strsplit(out, "\n", -1);
+        if (tokens) {
+            for (line = tokens; *line; line++) {
+                if (strlen(*line) == 0) 
+                    continue;
+                tokens = g_strsplit(*line, ":", -1);
+                if (tokens) {
+                    for (ptr = tokens, i = 0; *ptr; ptr++, i++) {
+                        if (i == 0)
+                            part = g_strdup(*ptr);
+                        else if (i == 1)
+                            name = g_strdup(*ptr);
+                        else if (i == 2)
+                            shortname = g_strdup(*ptr);
+                    }
+#ifdef DEBUG
+                    g_print("DEBUG: %s (%s) at %s\n", name, shortname, part);
+#endif
+                    osprober_osprober_emit_found(g_object_ref(OSPROBER_OSPROBER(daemon)), 
+                                                 part, 
+                                                 name, 
+                                                 shortname);
+                    if (part) {
+                        g_free(part);
+                        part = NULL;
+                    }
+                    if (name) {
+                        g_free(name);
+                        name = NULL;
+                    }
+                    if (shortname) {
+                        g_free(shortname);
+                        shortname = NULL;
+                    }
+                    g_strfreev(tokens);
+                    tokens = NULL;
+                }
+            }
+            g_strfreev(tokens);
+            tokens = NULL;
+        }
+    }
+
+    if (error) {
+        g_print("ERROR: %s\n%s\n", err, error->message);
+        osprober_osprober_emit_error(g_object_ref(OSPROBER_OSPROBER(daemon)), 
+                                     error->message);
+        g_error_free(error);
+        error = NULL;
+    }
+
+    osprober_osprober_emit_finished(g_object_ref(OSPROBER_OSPROBER(daemon)), 
+                                    status);
+
+    return NULL;
+}
+
 static gboolean 
 daemon_probe(OSProberOSProber *object, 
              GDBusMethodInvocation *invocation) 
 {
     Daemon *daemon = (Daemon *)object;
-    FILE *fptr = NULL;
-    char buf[1024];
-    char *token = NULL;
-    /* os-prober's output alike:
-       /dev/sda1:Windows NT/2000/XP:WinNT:chain
-       ^-------^ ^----------------^ ^---^ ^---^
-         part.    OS name for boot  short May change: type of boot loader
-            loader's pretty   name  required. Usually there is only
-            output                  a 'linux' style bootloader or
-                                    a chain one for other partitions
-                                    with their own boot sectors.
-     */
-    char toks[4][128];
-    int status = -1;
-    int i;
 
-    system("/usr/bin/os-prober > /tmp/os-prober.txt");
-    fptr = fopen("/tmp/os-prober.txt", "r");
-    if (fptr) {
-        status = 0;
-        while (fgets(buf, sizeof(buf), fptr)) {
-            token = strtok(buf, ":");
-            i = 0;
-            while (token) {
-                memset(toks[i], 0, sizeof(toks[i]));
-                strncpy(toks[i], token, sizeof(toks[i]) - 1);
-                token = strtok(NULL, ":");
-                i++;
-            }
-            osprober_osprober_emit_found(g_object_ref(OSPROBER_OSPROBER(daemon)), 
-                                         toks[0], 
-                                         toks[1], 
-                                         toks[2]); /* so we do NOT use the 4th 
-                                                      value might changed */
-#ifdef DEBUG
-            g_print("DEBUG: Found %s %s %s\n", toks[0], toks[1], toks[2]);
-#endif
-        }
-        fclose(fptr);
-        fptr = NULL;
-    }
-
-    osprober_osprober_emit_finished(g_object_ref(OSPROBER_OSPROBER(daemon)), 
-                                    status);
+    g_thread_new(NULL, osprober_routine, daemon);
 
     return TRUE;
 }

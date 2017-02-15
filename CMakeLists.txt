@@ -52,5 +52,8 @@ include(FeatureSummary)
 add_subdirectory(daemon)
 add_subdirectory(data)
 add_subdirectory(po)
+if(ENABLE_DEBUG)
+    add_subdirectory(test)
+endif()
 
 feature_summary(WHAT ALL FATAL_ON_MISSING_REQUIRED_PACKAGES)
