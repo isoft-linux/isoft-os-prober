@@ -245,6 +245,12 @@ static gpointer osprober_routine(gpointer data)
         error = NULL;
     }
 
+    g_spawn_command_line_sync("/usr/bin/umount /var/lib/os-prober/mount", 
+                              NULL, 
+                              NULL, 
+                              0, 
+                              NULL);
+
     osprober_osprober_emit_finished(g_object_ref(OSPROBER_OSPROBER(daemon)), 
                                     status);
 
